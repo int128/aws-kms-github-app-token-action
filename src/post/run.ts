@@ -22,4 +22,5 @@ export const run = async (inputs: Inputs) => {
   }
   const octokit = getOctokit(inputs.token, inputs.githubApiUrl)
   await octokit.apps.revokeInstallationAccessToken()
+  core.info(`Revoked the token`)
 }

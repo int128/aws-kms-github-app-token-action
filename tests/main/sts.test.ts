@@ -1,6 +1,6 @@
 import assert from 'node:assert'
 import { describe, it } from 'node:test'
-import { getDefaultRoleSessionName } from '../src/aws.ts'
+import { getDefaultRoleSessionName } from '../../src/main/sts.ts'
 
 describe('getDefaultRoleSessionName', () => {
   it('returns the repository and run ID', () => {
