@@ -15,7 +15,6 @@ describe('parseInstallationTarget', () => {
   it('returns the owner if only owner is set', () => {
     assert.deepStrictEqual(parseInstallationTarget({ owner: 'example', repositories: [] }, context), {
       owner: 'example',
-      repositories: undefined,
     })
   })
 

@@ -8,34 +8,34 @@ export type InstallationTargetInputs = {
 
 export type InstallationTarget = {
   owner: string
-  repositories: string[] | undefined
+  repositories?: string[]
 }
 
 export const parseInstallationTarget = (inputs: InstallationTargetInputs, context: Context): InstallationTarget => {
-  if (inputs.repositories.length === 0) {
-    if (!inputs.owner) {
-      return { owner: context.repo.owner, repositories: [context.repo.repo] }
-    }
-    return { owner: inputs.owner, repositories: undefined }
+  if (inputs.repositories.length > 0) {
+    const owner = inputs.owner || context.repo.owner
+    return { owner, repositories: inputs.repositories.map((input) => parseRepository(input, owner)) }
   }
+  if (inputs.owner) {
+    return { owner: inputs.owner }
+  }
+  return { owner: context.repo.owner, repositories: [context.repo.repo] }
+}
 
-  const owner = inputs.owner || context.repo.owner
-  const repositories = inputs.repositories.map((input) => {
-    const parts = input.split('/')
-    if (parts.length === 1 && parts[0]) {
-      return parts[0]
+const parseRepository = (input: string, owner: string): string => {
+  const [first, second, ...rest] = input.split('/')
+  if (first && second === undefined) {
+    return first
+  }
+  if (first && second && rest.length === 0) {
+    if (first.toLowerCase() !== owner.toLowerCase()) {
+      throw new Error(
+        `Repository '${input}' includes owner '${first}', which does not match the resolved owner '${owner}'.`,
+      )
     }
-    if (parts.length === 2 && parts[0] && parts[1]) {
-      if (parts[0].toLowerCase() !== owner.toLowerCase()) {
-        throw new Error(
-          `Repository '${input}' includes owner '${parts[0]}', which does not match the resolved owner '${owner}'.`,
-        )
-      }
-      return parts[1]
-    }
-    throw new Error(`Invalid repository '${input}'. Expected 'repository' or 'owner/repository'.`)
-  })
-  return { owner, repositories }
+    return second
+  }
+  throw new Error(`Invalid repository '${input}'. Expected 'repository' or 'owner/repository'.`)
 }
 
 type InstallationAccessToken = {
@@ -50,30 +50,14 @@ export const createInstallationAccessToken = async (
   permissions: Permissions,
   octokit: Octokit,
 ): Promise<InstallationAccessToken> => {
-  if (target.repositories === undefined) {
-    const { data: installation } = await octokit.apps.getUserInstallation({
-      username: target.owner,
-    })
-    const { data: installationToken } = await octokit.apps.createInstallationAccessToken({
-      installation_id: installation.id,
-      ...(permissions ? { permissions } : {}),
-    })
-    return {
-      token: installationToken.token,
-      expiresAt: installationToken.expires_at,
-      installationId: installation.id,
-      appSlug: installation.app_slug,
-    }
-  }
-
-  const { data: installation } = await octokit.apps.getRepoInstallation({
-    owner: target.owner,
-    repo: target.repositories[0] ?? '',
-  })
+  const { data: installation } =
+    target.repositories === undefined
+      ? await octokit.apps.getUserInstallation({ username: target.owner })
+      : await octokit.apps.getRepoInstallation({ owner: target.owner, repo: target.repositories[0] ?? '' })
   const { data: installationToken } = await octokit.apps.createInstallationAccessToken({
     installation_id: installation.id,
-    repositories: target.repositories,
-    ...(permissions ? { permissions } : {}),
+    ...(target.repositories && { repositories: target.repositories }),
+    ...(permissions && { permissions }),
   })
   return {
     token: installationToken.token,
