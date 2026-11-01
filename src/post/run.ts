@@ -4,6 +4,7 @@ import { getOctokit } from '../github.ts'
 export type Inputs = {
   token: string
   expiresAt: string
+  githubApiUrl: string
 }
 
 export const run = async (inputs: Inputs) => {
@@ -19,6 +20,6 @@ export const run = async (inputs: Inputs) => {
     core.info('The token has already expired')
     return
   }
-  const octokit = getOctokit(inputs.token)
+  const octokit = getOctokit(inputs.token, inputs.githubApiUrl)
   await octokit.apps.revokeInstallationAccessToken()
 }

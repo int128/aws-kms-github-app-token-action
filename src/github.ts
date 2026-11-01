@@ -2,13 +2,7 @@ import assert from 'node:assert'
 import { retry } from '@octokit/plugin-retry'
 import { Octokit } from '@octokit/rest'
 
-export const getOctokit = (auth: string) => {
-  const baseUrl = process.env['GITHUB_API_URL']
-  return new (Octokit.plugin(retry))({
-    auth,
-    ...(baseUrl ? { baseUrl } : {}),
-  })
-}
+export const getOctokit = (auth: string, baseUrl: string) => new (Octokit.plugin(retry))({ auth, baseUrl })
 
 export type Context = {
   repo: {

@@ -12,6 +12,7 @@ type Inputs = {
   awsRegion: string
   kmsKeyId: string
   clientId: string
+  githubApiUrl: string
   installationTarget: InstallationTarget
   permissions: Permissions
 }
@@ -41,7 +42,7 @@ export const run = async (inputs: Inputs): Promise<Outputs> => {
   core.setSecret(jwt)
   core.info(`Signed the GitHub App JWT using the AWS KMS key ${inputs.kmsKeyId}`)
 
-  const octokit = getOctokit(jwt)
+  const octokit = getOctokit(jwt, inputs.githubApiUrl)
   const installationToken = await createInstallationAccessToken(inputs.installationTarget, inputs.permissions, octokit)
   core.setSecret(installationToken.token)
   core.info(`Created an installation token, expires at ${installationToken.expiresAt}`)

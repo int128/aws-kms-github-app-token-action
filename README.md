@@ -26,9 +26,7 @@ GitHub generates the private key of a GitHub App, so you need to import it into 
 1. Create a KMS key with `KeySpec=RSA_2048`, `KeyUsage=SIGN_VERIFY` and `Origin=EXTERNAL`.
 2. Generate a private key in the GitHub App settings.
 3. Convert the private key from PEM to PKCS#8 DER, because AWS KMS requires the DER format.
-   ```sh
-   openssl pkcs8 -topk8 -inform PEM -outform DER -nocrypt -in private-key.pem -out private-key.der
-   ```
+   e.g., `openssl pkcs8 -topk8 -inform PEM -outform DER -nocrypt -in private-key.pem -out private-key.der`
 4. Import the private key into the KMS key.
    See [Importing key material](https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html).
 5. Delete the private key from your computer.
@@ -147,6 +145,7 @@ The inputs and outputs follow [actions/create-github-app-token](https://github.c
 | `client-id`         | (required)                              | GitHub App Client ID                                                                                      |
 | `owner`             | current repository owner                | Owner of the GitHub App installation                                                                      |
 | `repositories`      | current repository, if `owner` is unset | Newline-separated list of repositories to grant the token access to. Each entry is `repo` or `owner/repo` |
+| `github-api-url`    | `${{ github.api_url }}`                 | Base URL of the GitHub API                                                                                |
 | `skip-token-revoke` | `false`                                 | If true, the post step does not revoke the token                                                          |
 | `permission-*`      | all permissions of the app              | Level of permission to grant the token. See [action.yaml](action.yaml) for the list                       |
 
@@ -154,10 +153,10 @@ The token scope depends on the combination of `owner` and `repositories`.
 
 | `owner` | `repositories` | Token scope                                         |
 | ------- | -------------- | --------------------------------------------------- |
-| unset   | unset          | Current repository                                  |
-| unset   | set            | Listed repositories of the current repository owner |
-| set     | unset          | All repositories of the installation for the owner  |
-| set     | set            | Listed repositories of the owner                    |
+| -       | -              | Current repository                                  |
+| -       | Set            | Listed repositories of the current repository owner |
+| Set     | -              | All repositories of the installation for the owner  |
+| Set     | Set            | Listed repositories of the owner                    |
 
 ### Outputs
 

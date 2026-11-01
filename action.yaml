@@ -22,6 +22,10 @@ inputs:
   repositories:
     description: Newline-separated list of repositories to grant the token access to (defaults to current repository if owner is unset)
     required: false
+  github-api-url:
+    description: The base URL of the GitHub API (defaults to the API URL of the current GitHub)
+    required: false
+    default: ${{ github.api_url }}
   skip-token-revoke:
     description: If true, the token will not be revoked when the current job is complete
     required: false

@@ -13,6 +13,7 @@ const main = async () => {
     awsRegion: core.getInput('aws-region', { required: true }),
     kmsKeyId: core.getInput('kms-key-id', { required: true }),
     clientId: core.getInput('client-id', { required: true }),
+    githubApiUrl: core.getInput('github-api-url', { required: true }),
     installationTarget: parseInstallationTarget(
       {
         owner: core.getInput('owner'),

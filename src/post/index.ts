@@ -5,6 +5,7 @@ const post = async () => {
   await run({
     token: core.getState('token'),
     expiresAt: core.getState('expiresAt'),
+    githubApiUrl: core.getInput('github-api-url', { required: true }),
   })
 }
 
