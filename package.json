@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "check": "biome migrate --write && biome check --fix",
-    "build": "ncc build --source-map --license licenses.txt src/main -o dist/main && ncc build --source-map --license licenses.txt src/post -o dist/post",
+    "build": "ncc build --source-map --license licenses.txt src/main/index.ts -o dist/main && ncc build --source-map --license licenses.txt src/post/index.ts -o dist/post",
     "typecheck": "tsc",
     "test": "node --test"
   },
