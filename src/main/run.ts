@@ -29,7 +29,6 @@ export const run = async (inputs: Inputs): Promise<Outputs> => {
     webIdentityToken: await core.getIDToken('sts.amazonaws.com'),
     roleArn: inputs.roleToAssume,
     roleSessionName: inputs.roleSessionName,
-    clientConfig: { region: inputs.awsRegion },
   })
   const kms = new KMSClient({
     credentials: credentialIdentityProvider,
