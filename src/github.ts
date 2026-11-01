@@ -1,29 +1,28 @@
 import assert from 'node:assert'
-import * as fs from 'node:fs/promises'
-import { Octokit } from '@octokit/action'
-import type { webhooks } from '@octokit/openapi-webhooks-types'
 import { retry } from '@octokit/plugin-retry'
+import { Octokit } from '@octokit/rest'
 
-export const getOctokit = () => new (Octokit.plugin(retry))()
-
-type Payload<Event extends keyof webhooks> = webhooks[Event]['post']['requestBody']['content']['application/json']
-type PossiblePayload = Payload<keyof webhooks>
+export const getOctokit = (auth: string) => {
+  const baseUrl = process.env['GITHUB_API_URL']
+  return new (Octokit.plugin(retry))({
+    auth,
+    ...(baseUrl ? { baseUrl } : {}),
+  })
+}
 
 export type Context = {
   repo: {
     owner: string
     repo: string
   }
-  sha: string
-  payload: PossiblePayload
+  runId: string
 }
 
-export const getContext = async (): Promise<Context> => {
+export const getContext = (): Context => {
   // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
   return {
     repo: getRepo(),
-    sha: getEnv('GITHUB_SHA'),
-    payload: JSON.parse(await fs.readFile(getEnv('GITHUB_EVENT_PATH'), 'utf-8')) as PossiblePayload,
+    runId: getEnv('GITHUB_RUN_ID'),
   }
 }
 

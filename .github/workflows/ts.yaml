@@ -30,13 +30,9 @@ jobs:
       - run: npm install -g corepack
       - run: corepack enable
       - run: pnpm i
+      - run: pnpm run typecheck
       - run: pnpm run test
       - run: pnpm run build
-
-      - name: Run int128/typescript-action
-        uses: ./
-        with:
-          name: foo
 
   generate:
     runs-on: ubuntu-latest
