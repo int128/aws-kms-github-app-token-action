@@ -1,89 +1,167 @@
-# typescript-action [![ts](https://github.com/int128/typescript-action/actions/workflows/ts.yaml/badge.svg)](https://github.com/int128/typescript-action/actions/workflows/ts.yaml)
+# aws-kms-github-app-token-action [![ts](https://github.com/int128/aws-kms-github-app-token-action/actions/workflows/ts.yaml/badge.svg)](https://github.com/int128/aws-kms-github-app-token-action/actions/workflows/ts.yaml)
 
-This is a template of TypeScript action.
-Inspired from https://github.com/actions/typescript-action.
+This action creates a GitHub App installation access token with a private key stored in AWS KMS.
+It is a drop-in replacement for [actions/create-github-app-token](https://github.com/actions/create-github-app-token).
+The private key never leaves AWS KMS.
 
-## Features
+## Why
 
-- Ready to develop with the minimum configs
-  - tsconfig
-  - Biome
-  - Vitest
-- Automated continuous release
-- Keep consistency of generated files
-- Shipped with Renovate config
+A private key on the runner can leak to any step in the workflow.
+This action keeps the private key in AWS KMS and only requests signatures.
+
+|                                | actions/create-github-app-token                     | This action                                                                                                 |
+| ------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Private key on the runner      | Exposed. Any step or third-party action can read it | Never exposed                                                                                               |
+| Audit of the private key usage | Not traceable to a workflow                         | CloudTrail records `AssumeRoleWithWebIdentity` and `kms:Sign`                                               |
+| AWS credentials on the runner  | Not applicable                                      | Kept in the action memory. Not exported to subsequent steps, unlike `aws-actions/configure-aws-credentials` |
 
 ## Getting Started
 
-Click `Use this template` to create a repository.
+Set up AWS KMS, an IAM role and a workflow in this order.
 
-An initial release `v0.0.0` is automatically created by GitHub Actions.
-You can see the generated files in `dist` directory on the tag.
+### Import the private key into AWS KMS
 
-Then, checkout your repository and test it. Node.js is required.
+GitHub generates the private key of a GitHub App, so you need to import it into AWS KMS as external key material.
 
-```console
-$ git clone https://github.com/your/repo.git
+1. Create a KMS key with `KeySpec=RSA_2048`, `KeyUsage=SIGN_VERIFY` and `Origin=EXTERNAL`.
+2. Generate a private key in the GitHub App settings.
+3. Convert the private key from PEM to PKCS#8 DER, because AWS KMS requires the DER format.
+   e.g., `openssl pkcs8 -topk8 -inform PEM -outform DER -nocrypt -in private-key.pem -out private-key.der`
+4. Import the private key into the KMS key.
+   See [Importing key material](https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html).
+5. Delete the private key from your computer.
 
-$ pnpm i
-$ pnpm test
+To rotate the private key without downtime, follow these steps.
+A GitHub App accepts multiple private keys at the same time.
+
+1. Generate a new private key in the GitHub App settings.
+2. Import the new private key into a new KMS key.
+3. Switch the alias to the new KMS key.
+4. Delete the old private key in the GitHub App settings.
+5. Schedule the deletion of the old KMS key.
+
+### Create an IAM role
+
+The IAM role controls which repositories can use the GitHub App.
+
+Create an IAM role and add the following statement to the trust policy for the GitHub OIDC provider.
+Restrict the `sub` claim to the repositories which are allowed to use the GitHub App.
+
+```json
+{
+  "Effect": "Allow",
+  "Principal": {
+    "Federated": "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+  },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": {
+    "StringEquals": {
+      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+    },
+    "StringLike": {
+      "token.actions.githubusercontent.com:sub": "repo:your-org/your-repo:*"
+    }
+  }
+}
 ```
 
-Create a pull request with your change.
+Add the following statement to the permissions policy of the role, to allow it to sign with the KMS key.
 
-After merging the pull request, a new minor release (such as `v0.1.0`) is created.
-
-### Stable release
-
-When you want to create a stable release, change the major version in [release workflow](.github/workflows/release.yaml).
-
-```yaml
-- uses: int128/release-typescript-action@v1
-  with:
-    major-version: 1
+```json
+{
+  "Effect": "Allow",
+  "Action": "kms:Sign",
+  "Resource": "arn:aws:kms:ap-northeast-1:123456789012:key/...",
+  "Condition": {
+    "StringEquals": { "kms:SigningAlgorithm": "RSASSA_PKCS1_V1_5_SHA_256" }
+  }
+}
 ```
 
-Then a new stable release `v1.0.0` is created.
+The role can create a token for any installation of the GitHub App with any permission.
+If you need to restrict the scope, separate the roles or GitHub Apps by use case.
 
-## Specification
+### Create a workflow
 
-To run this action, create a workflow as follows:
+Grant `id-token: write` to the job, because this action requires a GitHub OIDC token.
 
 ```yaml
 jobs:
-  build:
+  example:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
-      - uses: int128/typescript-action@v1
+      - uses: int128/aws-kms-github-app-token-action@v0
+        id: app-token
         with:
-          name: hello
+          role-to-assume: arn:aws:iam::123456789012:role/github-app-signer
+          aws-region: ap-northeast-1
+          kms-key-id: alias/github-app-key
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          permission-contents: read
+      - run: gh repo view "$GITHUB_REPOSITORY"
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 ```
+
+## How it works
+
+This action signs the JWT of the GitHub App with AWS KMS instead of a local private key.
+
+```mermaid
+sequenceDiagram
+  participant Action as This action
+  participant GHA as GitHub Actions OIDC
+  participant STS as AWS STS
+  participant KMS as AWS KMS
+  participant GitHub as GitHub API
+
+  Action ->> GHA: Get an OIDC token
+  Action ->> STS: AssumeRoleWithWebIdentity
+  Action ->> KMS: kms:Sign the JWT (RSASSA_PKCS1_V1_5_SHA_256)
+  Action ->> GitHub: Create an installation access token
+  Note over Action, GitHub: Subsequent steps use the token
+  Action ->> GitHub: Revoke the token in the post step
+```
+
+The post step skips the revocation in the following cases.
+
+- `skip-token-revoke` is `true`.
+- The token has already expired.
+
+## Specification
+
+The inputs and outputs follow [actions/create-github-app-token](https://github.com/actions/create-github-app-token) and [aws-actions/configure-aws-credentials](https://github.com/aws-actions/configure-aws-credentials).
 
 ### Inputs
 
-| Name   | Default    | Description   |
-| ------ | ---------- | ------------- |
-| `name` | (required) | example input |
+| Name                | Default                                 | Description                                                                                               |
+| ------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `role-to-assume`    | (required)                              | ARN of the IAM role to assume via GitHub OIDC                                                             |
+| `role-session-name` | `<owner>.<repo>@<run_id>`               | Role session name                                                                                         |
+| `aws-region`        | (required)                              | AWS region of the KMS key                                                                                 |
+| `kms-key-id`        | (required)                              | ID, ARN or alias of the KMS key                                                                           |
+| `client-id`         | (required)                              | GitHub App Client ID                                                                                      |
+| `owner`             | current repository owner                | Owner of the GitHub App installation                                                                      |
+| `repositories`      | current repository, if `owner` is unset | Newline-separated list of repositories to grant the token access to. Each entry is `repo` or `owner/repo` |
+| `github-api-url`    | `${{ github.api_url }}`                 | Base URL of the GitHub API                                                                                |
+| `skip-token-revoke` | `false`                                 | If true, the post step does not revoke the token                                                          |
+| `permission-*`      | all permissions of the app              | Level of permission to grant the token. See [action.yaml](action.yaml) for the list                       |
+
+The token scope depends on the combination of `owner` and `repositories`.
+
+| `owner` | `repositories` | Token scope                                         |
+| ------- | -------------- | --------------------------------------------------- |
+| -       | -              | Current repository                                  |
+| -       | Set            | Listed repositories of the current repository owner |
+| Set     | -              | All repositories of the installation for the owner  |
+| Set     | Set            | Listed repositories of the owner                    |
 
 ### Outputs
 
-| Name      | Description    |
-| --------- | -------------- |
-| `example` | example output |
-
-## Development
-
-### Release workflow
-
-When a pull request is merged into main branch, a new minor release is created by GitHub Actions.
-See https://github.com/int128/release-typescript-action for details.
-
-### Keep consistency of generated files
-
-If a pull request needs to be fixed by Prettier, an additional commit to fix it will be added by GitHub Actions.
-See https://github.com/int128/update-generated-files-action for details.
-
-### Dependency update
-
-You can enable Renovate to update the dependencies.
-This repository is shipped with the config https://github.com/int128/typescript-action-renovate-config.
+| Name              | Description                      |
+| ----------------- | -------------------------------- |
+| `token`           | GitHub installation access token |
+| `installation-id` | GitHub App installation ID       |
+| `app-slug`        | GitHub App slug                  |

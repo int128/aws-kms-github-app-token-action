@@ -2,18 +2,20 @@
   "private": true,
   "scripts": {
     "check": "biome migrate --write && biome check --fix",
-    "build": "ncc build --source-map --license licenses.txt src/index.ts",
+    "build": "ncc build --source-map --license licenses.txt src/main/index.ts -o dist/main && ncc build --source-map --license licenses.txt src/post/index.ts -o dist/post",
+    "typecheck": "tsc",
     "test": "node --test"
   },
   "type": "module",
   "dependencies": {
     "@actions/core": "3.0.1",
-    "@octokit/action": "8.0.4",
-    "@octokit/plugin-retry": "8.1.1"
+    "@aws-sdk/client-kms": "3.1158.0",
+    "@aws-sdk/credential-provider-web-identity": "3.972.84",
+    "@octokit/plugin-retry": "8.1.1",
+    "@octokit/rest": "22.0.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@octokit/openapi-webhooks-types": "12.2.0",
     "@tsconfig/node24": "24.0.5",
     "@tsconfig/strictest": "2.0.8",
     "@types/node": "24.19.2",
