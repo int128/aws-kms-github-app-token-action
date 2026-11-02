@@ -14,8 +14,8 @@ inputs:
     description: ID, ARN or alias of the KMS key which holds the GitHub App private key
     required: true
   client-id:
-    description: GitHub App Client ID
-    required: true
+    description: GitHub App Client ID (defaults to the value of the `GitHubAppClientId` tag of the KMS key)
+    required: false
   owner:
     description: The owner of the GitHub App installation (defaults to current repository owner)
     required: false

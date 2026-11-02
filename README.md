@@ -30,12 +30,14 @@ GitHub generates the private key of a GitHub App, so you need to import it into 
 4. Import the private key into the KMS key.
    See [Importing key material](https://docs.aws.amazon.com/kms/latest/developerguide/importing-keys.html).
 5. Delete the private key from your computer.
+6. Add the tag `GitHubAppClientId` with the Client ID of the GitHub App to the KMS key.
+   This action reads the Client ID from the tag if `client-id` is not set.
 
 To rotate the private key without downtime, follow these steps.
 A GitHub App accepts multiple private keys at the same time.
 
 1. Generate a new private key in the GitHub App settings.
-2. Import the new private key into a new KMS key.
+2. Import the new private key into a new KMS key, and add the same `GitHubAppClientId` tag.
 3. Switch the alias to the new KMS key.
 4. Delete the old private key in the GitHub App settings.
 5. Schedule the deletion of the old KMS key.
@@ -65,18 +67,27 @@ Restrict the `sub` claim to the repositories which are allowed to use the GitHub
 }
 ```
 
-Add the following statement to the permissions policy of the role, to allow it to sign with the KMS key.
+Add the following statements to the permissions policy of the role, to allow it to sign with the KMS key and read its tags.
 
 ```json
-{
-  "Effect": "Allow",
-  "Action": "kms:Sign",
-  "Resource": "arn:aws:kms:ap-northeast-1:123456789012:key/...",
-  "Condition": {
-    "StringEquals": { "kms:SigningAlgorithm": "RSASSA_PKCS1_V1_5_SHA_256" }
+[
+  {
+    "Effect": "Allow",
+    "Action": "kms:Sign",
+    "Resource": "arn:aws:kms:ap-northeast-1:123456789012:key/...",
+    "Condition": {
+      "StringEquals": { "kms:SigningAlgorithm": "RSASSA_PKCS1_V1_5_SHA_256" }
+    }
+  },
+  {
+    "Effect": "Allow",
+    "Action": ["kms:DescribeKey", "kms:ListResourceTags"],
+    "Resource": "arn:aws:kms:ap-northeast-1:123456789012:key/..."
   }
-}
+]
 ```
+
+If you set `client-id` in the workflow, you can omit `kms:DescribeKey` and `kms:ListResourceTags`.
 
 The role can create a token for any installation of the GitHub App with any permission.
 If you need to restrict the scope, separate the roles or GitHub Apps by use case.
@@ -98,7 +109,6 @@ jobs:
           role-to-assume: arn:aws:iam::123456789012:role/github-app-signer
           aws-region: ap-northeast-1
           kms-key-id: alias/github-app-key
-          client-id: ${{ vars.APP_CLIENT_ID }}
           permission-contents: read
       - run: gh repo view "$GITHUB_REPOSITORY"
         env:
@@ -119,6 +129,7 @@ sequenceDiagram
 
   Action ->> GHA: Get an OIDC token
   Action ->> STS: AssumeRoleWithWebIdentity
+  Action ->> KMS: kms:DescribeKey and kms:ListResourceTags to get the Client ID
   Action ->> KMS: kms:Sign the JWT (RSASSA_PKCS1_V1_5_SHA_256)
   Action ->> GitHub: Create an installation access token
   Note over Action, GitHub: Subsequent steps use the token
@@ -142,7 +153,7 @@ The inputs and outputs follow [actions/create-github-app-token](https://github.c
 | `role-session-name` | `<owner>.<repo>@<run_id>`               | Role session name                                                                                         |
 | `aws-region`        | (required)                              | AWS region of the KMS key                                                                                 |
 | `kms-key-id`        | (required)                              | ID, ARN or alias of the KMS key                                                                           |
-| `client-id`         | (required)                              | GitHub App Client ID                                                                                      |
+| `client-id`         | tag `GitHubAppClientId` of the KMS key  | GitHub App Client ID                                                                                      |
 | `owner`             | current repository owner                | Owner of the GitHub App installation                                                                      |
 | `repositories`      | current repository, if `owner` is unset | Newline-separated list of repositories to grant the token access to. Each entry is `repo` or `owner/repo` |
 | `github-api-url`    | `${{ github.api_url }}`                 | Base URL of the GitHub API                                                                                |

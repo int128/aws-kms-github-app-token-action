@@ -13,7 +13,7 @@ const main = async () => {
     roleSessionName: core.getInput('role-session-name') || getDefaultRoleSessionName(context),
     awsRegion: core.getInput('aws-region', { required: true }),
     kmsKeyId: core.getInput('kms-key-id', { required: true }),
-    clientId: core.getInput('client-id', { required: true }),
+    clientId: core.getInput('client-id') || undefined,
     githubApiUrl: core.getInput('github-api-url', { required: true }),
     installationTarget: parseInstallationTarget(
       {
