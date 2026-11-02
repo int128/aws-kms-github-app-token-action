@@ -1,4 +1,4 @@
-import type { Context } from './github.ts'
+import type { Context } from '../github.ts'
 
 // https://docs.aws.amazon.com/IAM/latest/APIReference/API_AssumeRoleWithWebIdentity.html
 export const getDefaultRoleSessionName = (context: Context): string => {

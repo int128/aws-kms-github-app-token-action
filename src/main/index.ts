@@ -1,8 +1,9 @@
 import * as core from '@actions/core'
-import { getDefaultRoleSessionName } from '../aws.ts'
 import { getContext } from '../github.ts'
+import { STATE_EXPIRES_AT, STATE_TOKEN } from '../state.ts'
 import { getPermissionsFromInputs, parseInstallationTarget } from './installation.ts'
 import { run } from './run.ts'
+import { getDefaultRoleSessionName } from './sts.ts'
 
 const main = async () => {
   const skipTokenRevoke = core.getBooleanInput('skip-token-revoke')
@@ -28,8 +29,8 @@ const main = async () => {
   core.setOutput('app-slug', outputs.appSlug)
   if (!skipTokenRevoke) {
     // Pass the token to the post step to revoke it
-    core.saveState('token', outputs.token)
-    core.saveState('expiresAt', outputs.expiresAt)
+    core.saveState(STATE_TOKEN, outputs.token)
+    core.saveState(STATE_EXPIRES_AT, outputs.expiresAt)
   }
 }
 
