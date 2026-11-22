@@ -53,10 +53,10 @@ jobs:
         id: app-token
         uses: ./
         with:
-          client-id: ${{ secrets.E2E_APP_CLIENT_ID }}
           role-to-assume: ${{ secrets.E2E_AWS_IAM_ROLE_ARN }}
           aws-region: us-west-2
-          kms-key-id: alias/github-app-int128-aws-kms-github-app-token-action
+          kms-key-id: alias/github-app-int128-bot
+          permission-metadata: read
       - run: gh repo view "$GITHUB_REPOSITORY"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
