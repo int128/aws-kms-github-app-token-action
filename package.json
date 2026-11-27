@@ -9,8 +9,8 @@
   "type": "module",
   "dependencies": {
     "@actions/core": "3.0.1",
-    "@aws-sdk/client-kms": "3.1158.0",
-    "@aws-sdk/credential-provider-web-identity": "3.972.84",
+    "@aws-sdk/client-kms": "3.1173.0",
+    "@aws-sdk/credential-provider-web-identity": "3.972.90",
     "@octokit/plugin-retry": "8.1.1",
     "@octokit/rest": "22.0.1"
   },
