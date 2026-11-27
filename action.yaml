@@ -29,7 +29,7 @@ inputs:
   skip-token-revoke:
     description: If true, the token will not be revoked when the current job is complete
     required: false
-    default: 'false'
+    default: "false"
   permission-actions:
     description: "The level of permission to grant the access token for GitHub Actions workflows, workflow runs, and artifacts. Can be set to 'read' or 'write'."
   permission-administration:
@@ -150,6 +150,6 @@ outputs:
   app-slug:
     description: GitHub App slug
 runs:
-  using: 'node24'
-  main: 'dist/main/index.js'
-  post: 'dist/post/index.js'
+  using: "node24"
+  main: "dist/main/index.js"
+  post: "dist/post/index.js"
